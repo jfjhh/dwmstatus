@@ -126,7 +126,7 @@ char *getdatetime(void) {
 
 float getbattery(void) {
 	FILE *fd;
-	int charge_now, charge_full, energy_now, energy_ful, voltage_now;
+	int charge_now, charge_full, energy_now, energy_full, voltage_now;
 
 	fd = fopen("/sys/class/power_supply/BAT0/energy_now", "r");
 	if (fd != NULL) {
