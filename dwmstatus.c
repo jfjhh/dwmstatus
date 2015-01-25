@@ -52,8 +52,11 @@ char *getcpu(void) {
 	}
 
 	fscanf(fd, "%d-%d", &min, &max);
+	fclose(fd);
+
 	if (max >= 100) {
 		fprintf(stderr, "%d cores!? Too many!\n", max);
+		exit(1);
 	}
 
 	if ((freqs = (float *) malloc(sizeof(float) * (max + 1))) == NULL) {
@@ -94,6 +97,7 @@ char *getcpu(void) {
 			snprintf(buf_part, buf_part_len - 2, "%0.2f", freqs[cur]);
 
 		strncat(buf, buf_part, buf_len + buf_part_len - 1);
+		free(scaling_cur_freq);
 	}
 
 	free(freqs);
@@ -128,8 +132,7 @@ float getbattery(void) {
 	FILE *fd;
 	int charge_now, charge_full, energy_now, energy_full, voltage_now;
 
-	fd = fopen("/sys/class/power_supply/BAT0/energy_now", "r");
-	if (fd != NULL) {
+	if ((fd = fopen("/sys/class/power_supply/BAT0/energy_now", "r")) != NULL) {
 		fscanf(fd, "%d", &energy_now);
 		fclose(fd);
 
@@ -152,15 +155,9 @@ float getbattery(void) {
 		return ((float)energy_now * 1000 / (float)voltage_now) * 100 /
 			((float)energy_full * 1000 / (float)voltage_now);
 
-	} else {
-		fd = fopen("/sys/class/power_supply/BAT1/charge_now", "r");
-		if(fd == NULL) {
-			fprintf(stderr, "Error opening charge_now.\n");
-			return -1;
-		}
+	} else if ((fd = fopen("/sys/class/power_supply/BAT1/charge_now", "r")) != NULL) {
 		fscanf(fd, "%d", &charge_now);
 		fclose(fd);
-
 
 		fd = fopen("/sys/class/power_supply/BAT1/charge_full", "r");
 		if(fd == NULL) {
@@ -171,6 +168,8 @@ float getbattery(void) {
 		fclose(fd);
 
 		return (((float) charge_now / (float) charge_full) * 100.0);
+	} else {
+		return -1.0;
 	}
 }
 
@@ -192,10 +191,8 @@ float ramusage(void) {
 }
 
 int main(void) {
-	char *status;
-	float bat1, ram;
-	char *datetime, *cpu_str;
-
+	char *status, *datetime, *cpu_str;
+	float bat, ram;
 
 	if (!(dpy = XOpenDisplay(NULL))) {
 		fprintf(stderr, "Cannot open display.\n");
@@ -209,9 +206,13 @@ int main(void) {
 		cpu_str = getcpu();
 		ram = ramusage();
 		datetime = getdatetime();
-		bat1 = getbattery();
-		snprintf(status, 200, "[ %s | %0.1f%% ]  [ %0.1f%% | %s ]",
-				cpu_str, ram, bat1, datetime);
+		bat = getbattery();
+		if (bat != -1.0)
+			snprintf(status, 200, "[ %s | %0.1f%% ]  [ %0.1f%% | %s ]",
+					cpu_str, ram, bat, datetime);
+		else
+			snprintf(status, 200, "[ %s | %0.1f%% ]  [ %s ]",
+					cpu_str, ram, datetime);
 
 		free(cpu_str);
 		free(datetime);
