@@ -1,5 +1,5 @@
 /* made by profil 2011-12-29.
- * edited by jfjhh 2015-1-23.
+ * modified by jfjhh 2015-1-23.
  **
  ** Compile with:
  ** gcc -Wall -pedantic -std=c99 -lX11 status.c
@@ -175,19 +175,37 @@ float getbattery(void) {
 
 float ramusage(void) {
 	FILE *fd;
-	int total, free;
-	free = total = -1;
+	char *buf;
+	int total, available, cached, buflen;
+
+	total = available = cached = -1;
 
 	fd = fopen("/proc/meminfo", "r");
 	if(fd == NULL) {
-		fprintf(stderr, "Error opening charge_full.\n");
+		fprintf(stderr, "Error opening /proc/meminfo.\n");
 		return -1;
 	}
-	fscanf(fd, "MemTotal: %d kB\n", &total);
-	fscanf(fd, "MemFree: %d kB\n", &free);
-	fclose(fd);
 
-	return (100.0 - (((float) free / (float) total) * 100.0));
+	buflen = 64;
+	buf = (char *) malloc(sizeof(char) * buflen);
+
+	while (total == -1) {
+		fgets(buf, buflen, fd);
+		sscanf(buf, "MemTotal: %d kB\n", &total);
+	}
+	while (available == -1) {
+		fgets(buf, buflen, fd);
+		sscanf(buf, "MemAvailable: %d kB\n", &available);
+	}
+	while (cached == -1) {
+		fgets(buf, buflen, fd);
+		sscanf(buf, "Cached: %d kB\n", &cached);
+	}
+
+	fclose(fd);
+	free(buf);
+
+	return 100.0 - (((float) (available - cached) / (float) total) * 100.0);
 }
 
 int main(void) {
