@@ -176,9 +176,9 @@ float getbattery(void) {
 float ramusage(void) {
 	FILE *fd;
 	char *buf;
-	int total, available, cached, buflen;
+	int total, available, cached, buffers, buflen;
 
-	total = available = cached = -1;
+	total = available = cached = buffers = -1;
 
 	fd = fopen("/proc/meminfo", "r");
 	if(fd == NULL) {
@@ -197,6 +197,10 @@ float ramusage(void) {
 		fgets(buf, buflen, fd);
 		sscanf(buf, "MemAvailable: %d kB\n", &available);
 	}
+	while (buffers == -1) {
+		fgets(buf, buflen, fd);
+		sscanf(buf, "Buffers: %d kB\n", &buffers);
+	}
 	while (cached == -1) {
 		fgets(buf, buflen, fd);
 		sscanf(buf, "Cached: %d kB\n", &cached);
@@ -205,7 +209,8 @@ float ramusage(void) {
 	fclose(fd);
 	free(buf);
 
-	return 100.0 - (((float) (available - cached) / (float) total) * 100.0);
+	return 100.0 - (((float) (available - cached - buffers) \
+				/ (float) total) * 100.0);
 }
 
 int main(void) {
