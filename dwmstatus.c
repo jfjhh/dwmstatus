@@ -1,13 +1,11 @@
-/* made by profil 2011-12-29.
- * modified by jfjhh 2015-1-23.
- **
- ** Compile with:
- ** gcc -Wall -pedantic -std=c99 -lX11 status.c
- */
+/* A status bar for dwm. */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 #include <time.h>
 #include <X11/Xlib.h>
 
@@ -176,9 +174,10 @@ float getbattery(void) {
 float ramusage(void) {
 	FILE *fd;
 	char *buf;
-	int total, available, cached, buffers, buflen;
+	int total, active, buflen;
 
-	total = available = cached = buffers = -1;
+	total = active = -1;
+	buflen = 512;
 
 	fd = fopen("/proc/meminfo", "r");
 	if(fd == NULL) {
@@ -186,31 +185,21 @@ float ramusage(void) {
 		return -1;
 	}
 
-	buflen = 64;
 	buf = (char *) malloc(sizeof(char) * buflen);
 
 	while (total == -1) {
 		fgets(buf, buflen, fd);
 		sscanf(buf, "MemTotal: %d kB\n", &total);
 	}
-	while (available == -1) {
+	while (active == -1) {
 		fgets(buf, buflen, fd);
-		sscanf(buf, "MemAvailable: %d kB\n", &available);
-	}
-	while (buffers == -1) {
-		fgets(buf, buflen, fd);
-		sscanf(buf, "Buffers: %d kB\n", &buffers);
-	}
-	while (cached == -1) {
-		fgets(buf, buflen, fd);
-		sscanf(buf, "Cached: %d kB\n", &cached);
+		sscanf(buf, "Active: %d kB\n", &active);
 	}
 
 	fclose(fd);
 	free(buf);
 
-	return 100.0 - (((float) (available - cached - buffers) \
-				/ (float) total) * 100.0);
+	return ((float) active / (float) total) * 100.0;
 }
 
 int main(void) {
@@ -222,8 +211,10 @@ int main(void) {
 		return 1;
 	}
 
-	if((status = malloc(200)) == NULL)
-		exit(1);
+	if ((status = (char *) malloc(sizeof(char) * 200)) == NULL) {
+		fprintf(stderr, "Cannot allocate memory for status string.\n");
+		return 1;
+	}
 
 	for (;;sleep(1)) {
 		cpu_str = getcpu();
